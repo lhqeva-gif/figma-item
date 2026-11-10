@@ -1,0 +1,14 @@
+{
+  "title": "雷士照明AI平台",
+  "description": "雷士照明AI平台，是以人工智能为驱动、以智慧光环境为基础、以智能体服务为核心的综合性 AI 生态平台。\n平台通过 AI 技术与智能硬件的深度融合，构建统一的智能交互与场景服务体系，推动照明设备从被动控制向主动服务升级。从单品智能到多设备协同，从功能交互到场景化智能体服务，让 AI 能力融入家庭学习、睡眠、生活及健康光环境等多元场景，持续拓展智慧照明的应用边界。",
+  "robots": {
+    "index": false
+  },
+  "icons": {
+    "icon": "/.figma/make/favicon.png"
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

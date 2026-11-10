@@ -1,0 +1,221 @@
+@import 'tailwindcss';
+
+/* Exact faces from the Figma design (resolved via figma fonts resolve) */
+@font-face {
+  font-family: 'Inter:Regular';
+  src: url('https://static.figma.com/font/Inter_1') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans SC:Bold';
+  src: url('https://static.figma.com/font/NotoSansSC-VF_2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans SC:Medium';
+  src: url('https://static.figma.com/font/NotoSansSC-VF_2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans SC:Regular';
+  src: url('https://static.figma.com/font/NotoSansSC-VF_2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@theme {
+  --font-sc-regular: 'Noto Sans SC:Regular', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-sc-medium: 'Noto Sans SC:Medium', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-sc-bold: 'Noto Sans SC:Bold', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
+
+  --color-brand: #008755;
+  --color-brand-hover: #00a066;
+  --color-brand-bright: #2ee59d;
+  --color-warm: #ffb45e;
+  --color-ink: #050807;
+  --color-surface: #0a0f0d;
+  --color-surface-2: #0e1512;
+  --color-fg: #eef3f0;
+  --color-muted: #8b9690;
+  --color-dim: #56615b;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+
+  --animate-flow: flow 2.4s linear infinite;
+  --animate-pulse-ring: pulse-ring 3.2s ease-out infinite;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-spin-slow: spin 40s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-dash: dash 3.2s linear infinite;
+  --animate-blink: blink 1.1s steps(1) infinite;
+  --animate-wave: wave 1s ease-in-out infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-grid-scroll: grid-scroll 4s linear infinite;
+  --animate-breathe: breathe 4.2s ease-in-out infinite;
+  --animate-zzz: zzz 1.8s ease-out infinite;
+
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-6px) scale(1.025);
+    }
+  }
+  @keyframes zzz {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0.8);
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(10px, -18px) scale(1.1);
+    }
+  }
+
+  @keyframes blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    50.01%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes wave {
+    0%,
+    100% {
+      transform: scaleY(0.3);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes grid-scroll {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 0 48px;
+    }
+  }
+
+  @keyframes dash {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -410;
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes flow {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: -476px 0;
+    }
+  }
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.85);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+    background: var(--color-ink);
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sc-regular);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: rgb(0 135 85 / 0.5);
+    color: #fff;
+  }
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@utility bg-dots {
+  background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Recolors an existing SVG asset without modifying it: the file is used as an alpha mask. */
+@utility svg-mask {
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
