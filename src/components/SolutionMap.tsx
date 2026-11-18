@@ -30,22 +30,22 @@ type MapProps = { selected: number; onSelect: (i: number) => void; active: Set<s
 
 function DesktopCanvas({ selected, onSelect, active }: MapProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
+  const [scale, setScale] = useState(520 / CANVAS_H)
 
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const ro = new ResizeObserver(([entry]) => setScale(Math.min(1, entry.contentRect.width / CANVAS_W)))
-    ro.observe(el)
-    return () => ro.disconnect()
+    const observer = new ResizeObserver(([entry]) => {
+      setScale(Math.min(entry.contentRect.width / CANVAS_W, 520 / CANVAS_H))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   return (
     <div ref={wrapRef} className="hidden w-full lg:block" style={{ height: CANVAS_H * scale }}>
-      <div
-        className="relative origin-top-left"
-        style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}
-      >
+      <div className="mx-auto" style={{ width: CANVAS_W * scale }}>
+      <div className="relative origin-top-left" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}>
         {/* Ambient glow behind the agent */}
         <div className="pointer-events-none absolute top-[200px] left-[456px] size-[400px] rounded-full bg-brand/[0.12] blur-[100px]" />
 
@@ -78,6 +78,7 @@ function DesktopCanvas({ selected, onSelect, active }: MapProps) {
             主智能体 · 专业能力组合
           </p>
         </div>
+      </div>
       </div>
     </div>
   )

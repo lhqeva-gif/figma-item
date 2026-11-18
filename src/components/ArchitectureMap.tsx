@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ZoomCanvas } from './ZoomCanvas'
 
 const CANVAS_W = 1000
 const CANVAS_H = 980
@@ -25,7 +26,7 @@ type ArchNode = { id: NodeId; label: string; desc: string; x: number; y: number;
 const nodes: ArchNode[] = [
   { id: 'agent', label: 'AI Agent / LLM', desc: '第三方生态中的智能体或大模型，负责理解意图并发起调用。', x: 330, y: 52, w: 240, h: 56, strong: true },
   { id: 'mcpc', label: 'MCP Client', desc: '通过 JSON-RPC 与 Agent 通信，按标准化协议连接 MCP Server。', x: 720, y: 52, w: 200, h: 56 },
-  { id: 'skills', label: 'Skills', desc: 'SKILL.md、操作手册与 SOP，由 Agent 按需加载，指导步骤与工具选择。', x: 32, y: 240, w: 360, h: 176 },
+  { id: 'skills', label: 'Skills', desc: 'SKILL.md、操作手册与 SOP 为 Agent 提供执行指导，再由 Agent 调用 CLI，经串口或蓝牙控制设备。', x: 32, y: 240, w: 360, h: 176 },
   { id: 'localmcp', label: '本地 MCP Server', desc: '在本地暴露设备能力，可封装 CLI，或直接调用串口与蓝牙。', x: 584, y: 316, w: 172, h: 56 },
   { id: 'cloudmcp', label: '云端 MCP Server', desc: '在云端暴露能力，经网络访问 IoT PaaS 控制联网设备。', x: 772, y: 316, w: 172, h: 56 },
   { id: 'cli', label: 'CLI', desc: '命令行工具，可被 Agent 通过 Shell 直接执行，统一驱动串口与蓝牙。', x: 120, y: 446, w: 220, h: 60, strong: true },
@@ -58,7 +59,8 @@ const line = (x1: number, y1: number, x2: number, y2: number) => ({ d: `M ${x1} 
 
 const edges: Edge[] = [
   { id: 'e1', from: 'agent', to: 'mcpc', label: 'JSON-RPC', d: 'M 570 80 L 716 80', lx: 643, ly: 80 },
-  { id: 'e2', from: 'agent', to: 'skills', label: '按需加载 · 指导步骤与工具选择', d: 'M 360 108 C 360 180, 212 170, 212 236', lx: 270, ly: 168, dashed: true, both: true },
+  { id: 'e2', from: 'agent', to: 'skills', label: '按需加载 SOP', d: 'M 360 108 C 360 180, 212 170, 212 236', lx: 230, ly: 160, dashed: true },
+  { id: 'e23', from: 'skills', to: 'agent', label: '指导步骤与工具选择', d: 'M 300 236 C 300 205, 420 205, 420 112', lx: 395, ly: 174, dashed: true },
   { id: 'e3', from: 'agent', to: 'cli', label: 'Shell 直接执行', d: 'M 470 108 L 470 448 Q 470 462 456 462 L 344 462', lx: 476, ly: 216 },
   { id: 'e4', from: 'mcpc', to: 'localmcp', label: '标准化协议', d: 'M 780 108 L 780 200 Q 780 212 768 212 L 682 212 Q 670 212 670 224 L 670 312', lx: 722, ly: 212, both: true },
   { id: 'e5', from: 'mcpc', to: 'cloudmcp', label: '标准化协议', d: 'M 858 108 L 858 312', lx: 858, ly: 170, both: true },
@@ -82,21 +84,31 @@ const edges: Edge[] = [
 ]
 
 type Step = { node: NodeId; via?: string }
-type Route = { id: string; name: string; desc: string; edges: string[]; steps: Step[] }
+type RouteBranch = { name: string; steps: Step[]; targets: NodeId[] }
+type Route = { id: string; name: string; desc: string; edges: string[]; steps: Step[]; branches?: RouteBranch[] }
 
 const routes: Route[] = [
   {
     id: 'skills',
     name: 'Skills 指导执行',
-    desc: 'Agent 按需读取 SOP，选择合适工具后经 Shell 执行 CLI，就近控制设备。',
-    edges: ['e2', 'e3', 'e11', 'e13', 'e17', 'e18'],
+    desc: 'Skills 指导 Agent 理解步骤与选择工具，由 Agent 经 Shell 执行 CLI，再通过串口或本地蓝牙抵达设备。',
+    edges: ['e23', 'e3', 'e10', 'e11', 'e12', 'e13', 'e15', 'e16', 'e17', 'e18'],
     steps: [
-      { node: 'agent' },
-      { node: 'skills', via: '按需加载 SOP' },
+      { node: 'skills' },
+      { node: 'agent', via: '指导步骤与工具选择' },
       { node: 'cli', via: 'Shell 直接执行' },
-      { node: 'ble', via: '调用' },
-      { node: 'btlocal' },
-      { node: 'bleDev', via: 'BLE Mesh' },
+    ],
+    branches: [
+      {
+        name: '串口执行分支',
+        steps: [{ node: 'serial', via: '打开并读写' }, { node: 'port', via: '下发 AT 指令' }],
+        targets: ['bleDev', 'wifiDev'],
+      },
+      {
+        name: '蓝牙执行分支',
+        steps: [{ node: 'ble', via: '调用' }, { node: 'btlocal', via: '发送蓝牙广播' }],
+        targets: ['bleDev', 'wifiDev'],
+      },
     ],
   },
   {
@@ -146,6 +158,8 @@ type Focus = { kind: 'node'; id: NodeId } | { kind: 'route'; id: string } | null
 
 /** Every edge upstream and downstream of a node, i.e. all chains passing through it. */
 function chainEdges(id: NodeId) {
+  // Skills guides CLI execution; its loading/guidance loop must not light up unrelated MCP paths.
+  if (id === 'skills') return new Set(routes.find((r) => r.id === 'skills')!.edges)
   const result = new Set<string>()
   const walk = (start: NodeId, dir: 'down' | 'up') => {
     const queue = [start]
@@ -186,33 +200,120 @@ function useHighlight(focus: Focus) {
 export function ArchitectureMap() {
   const [hover, setHover] = useState<Focus>(null)
   const [pinned, setPinned] = useState<string>(routes[0].id)
+  const [expanded, setExpanded] = useState(false)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dialogId = useId()
+  const titleId = useId()
   const focus: Focus = hover ?? { kind: 'route', id: pinned }
   const hl = useHighlight(focus)
 
+  useEffect(() => {
+    if (!expanded) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    return () => {
+      dialog.close()
+      document.body.style.overflow = previousOverflow
+      triggerRef.current?.focus({ preventScroll: true })
+    }
+  }, [expanded])
+
+  const details = (
+    <>
+      <RouteList pinned={pinned} focus={focus} onPin={setPinned} setHover={setHover} />
+      <FocusDetail focus={focus} />
+    </>
+  )
+
   return (
-    <div className="grid gap-[32px] xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-[40px]">
-      <DesktopCanvas hl={hl} focus={focus} setHover={setHover} />
-      <div className="flex flex-col gap-[20px] xl:sticky xl:top-[120px] xl:self-start">
-        <RouteList pinned={pinned} focus={focus} onPin={setPinned} setHover={setHover} />
-        <FocusDetail focus={focus} />
+    <div className="flex flex-col gap-[20px]">
+      <div className="flex flex-wrap items-center justify-between gap-[12px]">
+        <p className="font-sc-regular text-[13px] text-muted">缩放查看细节，拖拽探索链路</p>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls={dialogId}
+          aria-expanded={expanded}
+          onClick={() => {
+            setHover(null)
+            setExpanded(true)
+          }}
+          className="inline-flex cursor-pointer items-center gap-[8px] rounded-[8px] border border-brand-bright/30 bg-brand/10 px-[14px] py-[10px] font-sc-medium text-[14px] text-fg transition-colors hover:border-brand-bright/60 hover:bg-brand/25 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-bright"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+          全屏查看
+        </button>
       </div>
+      <div className="grid gap-[32px] xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-[40px]">
+        <DesktopCanvas hl={hl} focus={focus} setHover={setHover} />
+        <div className="flex flex-col gap-[20px] xl:sticky xl:top-[120px] xl:max-h-[560px] xl:self-start xl:overflow-y-auto xl:pr-[6px]">
+          {details}
+        </div>
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        id={dialogId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        onClose={() => {
+          setHover(null)
+          setExpanded(false)
+        }}
+        className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none flex-col gap-[20px] border-0 bg-ink p-[16px] text-fg backdrop:bg-ink/90 open:flex sm:p-[28px]"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-[16px] border-b border-line pb-[16px]">
+          <div>
+            <h2 id={titleId} className="font-sc-bold text-[20px] font-bold">平台架构图</h2>
+            <p className="mt-[4px] hidden font-sc-regular text-[13px] text-muted sm:block">悬停查看链路 · 拖拽移动画布 · 按 Esc 退出</p>
+          </div>
+          <button
+            type="button"
+            aria-label="关闭全屏架构图"
+            onClick={() => setExpanded(false)}
+            className="grid size-[40px] shrink-0 cursor-pointer place-items-center rounded-[10px] border border-line-strong text-muted transition-colors hover:bg-white/[0.08] hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-bright"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="m6 6 12 12M6 18 18 6" />
+            </svg>
+          </button>
+        </div>
+        {expanded && (
+          <div className="grid min-h-0 flex-1 gap-[24px] overflow-y-auto lg:grid-cols-[minmax(0,1fr)_300px] lg:overflow-hidden">
+            <DesktopCanvas hl={hl} focus={focus} setHover={setHover} expanded />
+            <div className="flex min-h-0 flex-col gap-[20px] lg:overflow-y-auto lg:pr-[6px]">
+              {details}
+            </div>
+          </div>
+        )}
+      </dialog>
     </div>
   )
 }
 
 type Highlight = ReturnType<typeof useHighlight>
 
-function DesktopCanvas({ hl, focus, setHover }: { hl: Highlight; focus: Focus; setHover: (f: Focus) => void }) {
+function DesktopCanvas({ hl, focus, setHover, expanded = false }: { hl: Highlight; focus: Focus; setHover: (f: Focus) => void; expanded?: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
+  const [viewportHeight, setViewportHeight] = useState(560)
+  const markerId = useId().replace(/:/g, '')
 
   useEffect(() => {
     const el = wrapRef.current
-    if (!el) return
-    const ro = new ResizeObserver(([entry]) => setScale(Math.min(1, entry.contentRect.width / CANVAS_W)))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+    if (!el || !expanded) return
+    const observer = new ResizeObserver(([entry]) => {
+      setViewportHeight(Math.max(240, entry.contentRect.height))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [expanded])
 
   const nodeState = (id: NodeId): NodeState => (!hl ? 'idle' : hl.nodeIds.has(id) ? 'on' : 'off')
   const enter = (id: NodeId) => () => setHover({ kind: 'node', id })
@@ -225,8 +326,9 @@ function DesktopCanvas({ hl, focus, setHover }: { hl: Highlight; focus: Focus; s
   })
 
   return (
-    <div ref={wrapRef} className="hidden w-full lg:block" style={{ height: CANVAS_H * scale }}>
-      <div className="relative origin-top-left select-none" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}>
+    <div ref={wrapRef} className={expanded ? 'h-[65dvh] min-h-[300px] min-w-0 lg:h-full lg:min-h-0' : 'hidden min-w-0 lg:block'}>
+      <ZoomCanvas width={CANVAS_W} height={CANVAS_H} viewportHeight={expanded ? viewportHeight : 560} label="平台架构图">
+      <div className="relative select-none" style={{ width: CANVAS_W, height: CANVAS_H }}>
         <Band y={0} h={140} label="01 · 第三方生态应用" />
         <Band y={190} h={460} label="02 · AI 开放能力" brand />
         <Band y={790} h={190} label="03 · 设备网络" />
@@ -242,7 +344,7 @@ function DesktopCanvas({ hl, focus, setHover }: { hl: Highlight; focus: Focus; s
         <svg className="pointer-events-none absolute inset-0" width={CANVAS_W} height={CANVAS_H} viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} fill="none" aria-hidden>
           <defs>
             {(['idle', 'on'] as const).map((k) => (
-              <marker key={k} id={`arch-arrow-${k}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <marker key={k} id={`${markerId}-arch-arrow-${k}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M 0 1 L 9 5 L 0 9 z" fill={k === 'on' ? '#2ee59d' : 'rgb(255 255 255 / 0.32)'} />
               </marker>
             ))}
@@ -250,7 +352,7 @@ function DesktopCanvas({ hl, focus, setHover }: { hl: Highlight; focus: Focus; s
           {edges.map((e) => {
             const on = hl?.edgeIds.has(e.id) ?? false
             const off = !!hl && !on
-            const marker = `url(#arch-arrow-${on ? 'on' : 'idle'})`
+            const marker = `url(#${markerId}-arch-arrow-${on ? 'on' : 'idle'})`
             return (
               <g key={e.id} className="transition-opacity duration-300" style={{ opacity: off ? 0.14 : 1 }}>
                 <path
@@ -297,6 +399,7 @@ function DesktopCanvas({ hl, focus, setHover }: { hl: Highlight; focus: Focus; s
             <NodeBox key={n.id} node={n} {...nodeProps(n.id)} />
           ))}
       </div>
+      </ZoomCanvas>
     </div>
   )
 }
@@ -407,7 +510,7 @@ function RouteList({ pinned, focus, onPin, setHover }: { pinned: string; focus: 
 
 function FocusDetail({ focus }: { focus: Focus }) {
   if (!focus) return null
-  if (focus.kind === 'route') {
+  if (focus.kind === 'route' || focus.id === 'skills') {
     const r = routes.find((x) => x.id === focus.id)!
     return (
       <div key={r.id} className="flex animate-fade-up flex-col gap-[16px] rounded-[14px] border border-line bg-surface p-[20px]">
@@ -415,22 +518,26 @@ function FocusDetail({ focus }: { focus: Focus }) {
           <p className="font-sc-bold text-[18px] font-bold text-fg">{r.name}</p>
           <p className="font-sc-regular text-[14px] leading-[1.65] text-muted">{r.desc}</p>
         </div>
-        <ol className="flex flex-col">
-          {r.steps.map((s, i) => (
-            <li key={s.node} className="flex flex-col">
-              {i > 0 && (
-                <span className="flex h-[26px] items-center gap-[10px] pl-[5px]">
-                  <span className="h-full w-px bg-brand-bright/40" />
-                  {s.via && <span className="font-sc-regular text-[11px] text-brand-bright/85">{s.via}</span>}
-                </span>
-              )}
-              <span className="flex items-center gap-[10px] font-sc-medium text-[14px] font-medium text-fg">
-                <span className="size-[11px] rounded-full border-2 border-brand-bright bg-ink" />
-                {nodeById[s.node].label}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <RouteSteps steps={r.steps} />
+        {r.branches && (
+          <div className="flex flex-col gap-[12px] border-t border-line pt-[16px]">
+            <p className="font-sc-regular text-[12px] text-muted">CLI 按场景选择以下执行分支</p>
+            {r.branches.map((branch) => (
+              <div key={branch.name} className="flex flex-col gap-[10px] rounded-[10px] border border-brand-bright/15 bg-brand/[0.06] p-[12px]">
+                <h3 className="font-sc-medium text-[13px] font-medium text-brand-bright">{branch.name}</h3>
+                <RouteSteps steps={branch.steps} continuation />
+                <div className="flex flex-col gap-[8px] border-t border-line pt-[10px]">
+                  <p className="font-mono text-[11px] text-brand-bright/85">BLE Mesh → 设备</p>
+                  <div className="flex flex-wrap gap-[6px]">
+                    {branch.targets.map((id) => (
+                      <span key={id} className="rounded-[6px] border border-line-strong px-[8px] py-[5px] font-sc-regular text-[12px] text-fg">{nodeById[id].label}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -446,6 +553,27 @@ function FocusDetail({ focus }: { focus: Focus }) {
       <NodeList title="上游" items={up} />
       <NodeList title="下游" items={down} />
     </div>
+  )
+}
+
+function RouteSteps({ steps, continuation = false }: { steps: Step[]; continuation?: boolean }) {
+  return (
+    <ol className="flex flex-col">
+      {steps.map((s, i) => (
+        <li key={s.node} className="flex flex-col">
+          {(i > 0 || continuation) && (
+            <span className="flex h-[26px] items-center gap-[10px] pl-[5px]">
+              <span className="h-full w-px bg-brand-bright/40" />
+              {s.via && <span className="font-sc-regular text-[11px] text-brand-bright/85">{s.via}</span>}
+            </span>
+          )}
+          <span className="flex items-center gap-[10px] font-sc-medium text-[14px] font-medium text-fg">
+            <span className="size-[11px] rounded-full border-2 border-brand-bright bg-ink" />
+            {nodeById[s.node].label}
+          </span>
+        </li>
+      ))}
+    </ol>
   )
 }
 

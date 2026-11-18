@@ -10,7 +10,17 @@ import { ArchitectureMap } from './components/ArchitectureMap'
 import { Corners, MediaFrame, SectionHeading } from './components/ui'
 import deskLamp from '@/assets/media/desk-lamp.webp'
 import floorLamp from '@/assets/media/floor-lamp.webp'
-import bedsideLamp from '@/assets/media/bedside-lamp.webp'
+import controlPanelImage from '@/imports/1.png'
+import pendantLamp from '@/assets/media/products/pendant.webp'
+import floorAmbient from '@/assets/media/products/floor-ambient.webp'
+import skyPanel from '@/assets/media/products/sky-panel.webp'
+import lightStrip from '@/assets/media/products/light-strip.webp'
+import hexCeiling from '@/assets/media/products/hex-ceiling.webp'
+import diningScene from '@/assets/media/scenes/dining.webp'
+import livingScene from '@/assets/media/scenes/living.webp'
+import studyScene from '@/assets/media/scenes/study.webp'
+import bedroomNightScene from '@/assets/media/scenes/bedroom-night.webp'
+import bedroomScene from '@/assets/media/scenes/bedroom.webp'
 
 const container = 'mx-auto w-full max-w-[1440px] px-[20px] sm:px-[40px] xl:px-[64px]'
 
@@ -185,34 +195,55 @@ function SolutionsSection() {
   )
 }
 
-function ProductCard({
-  src,
-  position,
-  title,
-  desc,
-  heightClass,
-}: {
-  src: string
-  position: string
+type Product = {
   title: string
   desc: string
-  heightClass: string
-}) {
+  /** Lifestyle photo, or the application-scene backdrop when a cutout is given. */
+  src: string
+  position: string
+  /** Transparent product render layered over the scene backdrop. */
+  cutout?: string
+  cutoutClass?: string
+}
+
+const products: Product[] = [
+  { title: 'AI 伴学台灯', desc: '桌面学习与语音陪伴', src: deskLamp, position: '50% 35%' },
+  { title: 'AI 伴学大路灯', desc: '学习空间照明与伴学交互', src: floorLamp, position: '50% 15%' },
+  { title: '慕雪8寸中控屏', desc: '设备控制中枢', src: controlPanelImage, position: '70% 50%' },
+  { title: '餐吊灯', desc: '餐厅与书桌，光随场景切换', src: diningScene, position: '50% 60%', cutout: pendantLamp, cutoutClass: 'top-[-6px] w-[86%]' },
+  { title: 'AI 氛围落地灯', desc: '客厅一角的情绪光与陪伴', src: livingScene, position: '40% 50%', cutout: floorAmbient, cutoutClass: 'bottom-[10px] h-[86%]' },
+  { title: 'AI 光画灯', desc: '模拟自然天光，办公学习更舒适', src: studyScene, position: '50% 50%', cutout: skyPanel, cutoutClass: 'top-1/2 h-[74%] -translate-y-1/2 rounded-[3px] shadow-[0_18px_40px_-12px_rgb(0_0_0/0.55)]' },
+  { title: 'AI 灯带', desc: '吊顶与柜体的柔和氛围照明', src: bedroomNightScene, position: '30% 60%', cutout: lightStrip, cutoutClass: 'top-1/2 h-[70%] -translate-y-1/2' },
+  { title: 'AI 霓耀窗', desc: '卧室与客厅主照明，渐变调光', src: bedroomScene, position: '50% 40%', cutout: hexCeiling, cutoutClass: 'top-[22px] w-[82%]' },
+]
+
+function ProductCard({ title, desc, src, position, cutout, cutoutClass = '' }: Product) {
   return (
-    <a href="#agent" className="group flex w-full flex-col gap-[16px] [word-break:break-word]">
-      <MediaFrame
-        src={src}
-        alt={title}
-        position={position}
-        className={`w-full transition-shadow duration-500 group-hover:shadow-[0_0_0_1px_rgb(255_255_255/0.14),0_30px_80px_-30px_rgb(0_0_0/0.9)] ${heightClass}`}
-        imgClassName="transition-transform duration-700 group-hover:scale-[1.03]"
-      />
-      <div className="flex items-start justify-between gap-[16px]">
-        <div className="flex flex-col gap-[6px]">
-          <p className="font-sc-medium text-[22px] leading-[1.4] font-medium text-fg">{title}</p>
-          <p className="font-sc-regular text-[17px] leading-[1.65] font-normal text-muted">{desc}</p>
+    <a href="#agent" className="group flex w-full snap-start flex-col gap-[14px] [word-break:break-word]">
+      <div className="relative h-[225px] w-full">
+        <MediaFrame
+          src={src}
+          alt={cutout ? `${title}应用场景` : title}
+          position={position}
+          className="size-full transition-shadow duration-500 group-hover:shadow-[0_0_0_1px_rgb(255_255_255/0.14),0_30px_80px_-30px_rgb(0_0_0/0.9)]"
+          imgClassName={`transition-transform duration-700 group-hover:scale-[1.04] ${cutout ? 'brightness-[0.62] saturate-[0.85]' : ''}`}
+        />
+        {cutout && (
+          <img
+            src={cutout}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 object-contain drop-shadow-[0_14px_22px_rgb(0_0_0/0.5)] transition-transform duration-700 group-hover:-translate-y-[4px] ${cutoutClass}`}
+          />
+        )}
+      </div>
+      <div className="flex items-start justify-between gap-[12px]">
+        <div className="flex min-w-0 flex-col gap-[4px]">
+          <p className="font-sc-medium text-[18px] leading-[1.4] font-medium text-fg">{title}</p>
+          <p className="font-sc-regular text-[14px] leading-[1.6] font-normal text-muted">{desc}</p>
         </div>
-        <span className="mt-[4px] grid size-[32px] shrink-0 place-items-center rounded-full border border-line font-mono text-[14px] text-muted transition-all group-hover:border-brand-bright/50 group-hover:bg-brand group-hover:text-white">
+        <span className="mt-[2px] grid size-[28px] shrink-0 place-items-center rounded-full border border-line font-mono text-[13px] text-muted transition-all group-hover:border-brand-bright/50 group-hover:bg-brand group-hover:text-white">
           ↗
         </span>
       </div>
@@ -230,7 +261,7 @@ function ProductsSection() {
           role="region"
           aria-label="AI 产品横向滑动列表"
           tabIndex={0}
-          className="grid auto-cols-[85%] grid-flow-col gap-[24px] overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-mandatory pb-[24px] [scrollbar-color:var(--color-brand)_transparent] [scrollbar-width:thin] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-bright motion-reduce:scroll-auto md:auto-cols-[44%] xl:auto-cols-[38%] xl:gap-[32px] [&>a]:snap-start"
+          className="grid auto-cols-[72%] grid-flow-col gap-[20px] overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-mandatory pb-[24px] [scrollbar-color:var(--color-brand)_transparent] [scrollbar-width:thin] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-bright motion-reduce:scroll-auto sm:auto-cols-[calc((100%-20px)/2)] md:auto-cols-[calc((100%-40px)/3)] lg:auto-cols-[calc((100%-60px)/4)] xl:auto-cols-[calc((100%-80px)/5)]"
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
             event.preventDefault()
@@ -243,27 +274,9 @@ function ProductsSection() {
             })
           }}
         >
-        <ProductCard
-          src={deskLamp}
-          position="50% 35%"
-          title="AI 伴学台灯"
-          desc="桌面学习与语音陪伴"
-          heightClass="aspect-[4/3] md:aspect-[4/5]"
-        />
-        <ProductCard
-          src={floorLamp}
-          position="50% 15%"
-          title="AI 伴学大路灯"
-          desc="学习空间照明与伴学交互"
-          heightClass="aspect-[4/3] md:aspect-[4/5]"
-        />
-        <ProductCard
-          src={bedsideLamp}
-          position="70% 50%"
-          title="AI 床头灯"
-          desc="未来规划 · 睡前陪伴与助眠方向"
-          heightClass="aspect-[4/3] md:aspect-[4/5]"
-        />
+          {products.map((p) => (
+            <ProductCard key={p.title} {...p} />
+          ))}
         </div>
         <div data-products-controls className="flex flex-wrap items-center justify-between gap-[16px]">
           <p className="font-sc-regular text-[13px] text-muted">左右滑动，探索更多产品</p>
